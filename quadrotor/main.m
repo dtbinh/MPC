@@ -17,87 +17,59 @@ disp('Data successfully loaded')
 
 %%%%%%%%%%%%%%%% ADD YOUR CODE BELOW THIS LINE %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Define some constants.
+[nx, nu] = size(sys.B);                         % State and input dimenstions
+T = 10;                                         % Simulation time [s]
+bForces = 0;                                    % Determines if FORCES is used
+x0 = [-1; 0.1745; -0.1745; 0.8727; 0; 0; 0];    % Initial condition
+
 %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART I - First MPC controller...\n')
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%Define an instance of the class LTIsystem using the give parameters
-system = LTISystem('A',sys.A,'B',sys.B,'Ts',sys.Ts);
+% Chose parameters N, Q, R, P. Chose final cost to be the the solution of
+% DARE of the unconstrained LQR control law.
+N = 20;
+Q = 10*eye(nx);
+R = eye(nu);
+[K_inf, P, ~] = dlqr(sys.A, sys.B, Q, R);
 
-Q = eye(size(sys.A));
-R = eye(size(sys.B,2));
-N = 10;
-%Get the LQR-Control law and the infinit-horizon-solution to the discrete
-%ARE
-[K,P_infty,~] = dlqr(sys.A,sys.B,Q,R);
+% Compute the maximum invariant set X_f for the cl-system 
+% x_k+1 = (A - B*K_inf)*x_k.
+clSystem = LTISystem('A', sys.A - sys.B*K_inf, 'Ts', sys.Ts);
+X_cl = clSystem.invariantSet();
+A_X_f = X_cl.A;
+b_X_f = X_cl.b;
 
-%Define the LQR-Closed-Loop system and use the memeberfunction
-%invariantSet() to find the maximum LQR-Control-Invariant Set which will be
-%used as terminal constraint.
-systemC = LTISystem('A',sys.A-sys.B*K,'Ts',sys.Ts);
-Xf = systemC.invariantSet('maxIterations',30);
-%Take the input-constraints of the inner loop into account!
-A_inputConstrains = [...
-    1 0 0 0 0 0 0;...
-    -1 0 0 0 0 0 0;...
-     0 1 0 0 0 0 0;...
-     0 -1 0 0 0 0 0;...
-     0 0 1 0 0 0 0;...
-     0 0 -1 0 0 0 0;...
-     0 0 0 0 1 0 0;...
-     0 0 0 0 -1 0 0;...
-     0 0 0 0 0 1 0;...
-     0 0 0 0 0 -1 0;...
-     0 0 0 0 0 0 1;...
-     0 0 0 0 0 0 -1];
- b_inputConstraints = [...
-     1;...
-     1;...
-     10/180*pi;...
-     10/180*pi;...
-     10/180*pi;...
-     10/180*pi;...
-     15/180*pi;...
-     15/180*pi;...
-     15/180*pi;...
-     15/180*pi;...
-     60/180*pi;...
-     60/180*pi];
-IC = polytope(A_inputConstrains,b_inputConstraints);   
+% Define constraints on states and inputs.
+stateConstraint = [1; 10/180*pi; 10/180*pi; Inf; 15/180*pi; 15/180*pi; 60/180*pi];
 
-%Defining the necessary sdp-variables for all N iterations
-nx = size(sys.A,1);
-nu = size(sys.B,2);
-x = sdpvar(nx,1);
-u = sdpvar(repmat(nu,1,N),ones(1,N));
-%Defining the constraints and the objective for all iterations
+% Define optimization variables x and u in appropriate sizes.
+x = sdpvar(nx,N+1);   % [dzdt; alpha; beta; gamma; dalphadt, dbetadt, dgammadt]
+u = sdpvar(nu,N);   % [u_1; u_2; u_3; u_4]
+
+% Generate constraints and objective function.
 constraints = [];
 objective = 0;
-for k = 1:N-1
-    %Equality constraint
-    x = sys.A*x + sys.B*u{k};
-    %Update the objective
-    objective = objective + x'*Q*x + u{k}'*R*u{k};
-    %Update the constraints: Inner loop state constraints
-    constraints = [constraints,...
-        abs(x(1))<=1,...
-        abs(x(2))<=10/180*pi,...
-        abs(x(3))<=10/180*pi,...
-        abs(x(5))<=15/180*pi,...
-        abs(x(6))<=15/180*pi,...
-        abs(x(7))<=60/180*pi];
-    %Update the constraints: Inner loop input constraints
-    constraints = [constraints,...
-        u{k}>zeros(4,1),...
-        u{k}<ones(4,1)]
+for i = 1:N
+    % Add state evolution constraints.
+    constraints = [constraints, x(:,i+1) == sys.A*x(:,i) + sys.B*u(:,i)];
+    % Add state constraints.
+    constraints = [constraints, -stateConstraint <= x(:,i) <= stateConstraint];
+    % Add input constraints.
+    constraints = [constraints, zeros(nu,1) <= u(:,i) - us <= ones(nu,1)];
+    
+    % Add to objective function
+    objective = objective + x(:,i)' * Q * x(:,i) + u(:,i)' * R * u(:,i);
 end
+% Add final state constraints and objective function.
+constraints = [constraints, A_X_f * x(:,N+1) <= b_X_f];
+objective = x(:,N+1)' * P * x(:,N+1);
 
-
-
-
-
-
-
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Call the optimizer
+options = sdpsettings();
+innerController = optimizer(constraints, objective, options, x(:,1), u(:,1));
+simQuad(sys, innerController, bForces, x0, T);
 
 %%%%%%%%%%%%%%%%%%%%%  Reference Tracking %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART II - Reference tracking...\n')
