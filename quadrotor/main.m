@@ -57,7 +57,7 @@ for i = 1:N
     % Add state constraints.
     constraints = [constraints, -stateConstraint <= x(:,i) <= stateConstraint];
     % Add input constraints.
-    constraints = [constraints, zeros(nu,1) <= u(:,i) - us <= ones(nu,1)];
+    constraints = [constraints, zeros(nu,1) <= u(:,i) + us <= ones(nu,1)];
     
     % Add to objective function
     objective = objective + x(:,i)' * Q * x(:,i) + u(:,i)' * R * u(:,i);
@@ -67,7 +67,7 @@ constraints = [constraints, A_X_f * x(:,N+1) <= b_X_f];
 objective = x(:,N+1)' * P * x(:,N+1);
 
 % Call the optimizer
-options = sdpsettings();
+options = sdpsettings;
 innerController = optimizer(constraints, objective, options, x(:,1), u(:,1));
 simQuad(sys, innerController, bForces, x0, T);
 
