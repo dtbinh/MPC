@@ -78,13 +78,16 @@ fprintf('PART II - Reference tracking...\n')
 % Clear variables
 clearvars x u objective constraints innerController
 
+% Define parameter for reference tracking
+constantReference = 1;
+
 % Define variables for controller
 ref = sdpvar(4,1);      % reference
 x = sdpvar(nx,N+1);     % states
 u = sdpvar(nu,N);       % inputs
 
-% Use formula of L07 slide 14 to compute xr and ur directly, because the
-% matrix has full rank.
+% Use formula of L07 slide 14 to compute xr and ur directly, which is not a
+% problem, since the matrix has full rank.
 C = [eye(4), zeros(4,3)];
 Z = [eye(nx) - sys.A, - sys.B; C, zeros(nu)];
 ss = Z\[zeros(nx,1); ref];
@@ -119,9 +122,14 @@ objective = objective + (x(:,i)-xr)' * P * (x(:,i)-xr);
 options = sdpsettings;
 innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u(:,1));
 
-% Simulate
+% Simulate either with constant or varying reference
 x0 = zeros(nx,1);
-r = [1.0; 0.1745; -0.1745; 1.7453];
+if constantReference
+    r = [1.0; 0.1745; -0.1745; 1.7453];
+else
+    T_vec = 0:sys.Ts:T;
+    r = [1.0*ones(size(T_vec)); 0.1745*sin(T_vec); -0.1745*sin(T_vec); pi/2*ones(size(T_vec))];
+end
 simQuad(sys, innerController, bForces, x0, T, r);
 
 %%%%%%%%%%%%%%%  First simulation of the nonlinear model %%%%%%%%%%%%%%%%%
