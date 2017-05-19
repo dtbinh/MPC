@@ -80,10 +80,8 @@ clearvars x u objective constraints innerController
 
 % Define variables for controller
 ref = sdpvar(4,1);      % reference
-% xr = sdpvar(nx,1);      % reference tracking steady-state
-% ur = sdpvar(nu,1);      % reference tracking steady-input
-x = sdpvar(nx,N+1);     % delta states
-u = sdpvar(nu,N);       % delta inputs
+x = sdpvar(nx,N+1);     % states
+u = sdpvar(nu,N);       % inputs
 
 % Use formula of L07 slide 14 to compute xr and ur directly, because the
 % matrix has full rank.
