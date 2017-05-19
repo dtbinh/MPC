@@ -68,8 +68,8 @@ objective = x(:,N+1)' * P * x(:,N+1);
 % Call the optimizer with given initial condition
 x0 = [-1; 0.1745; -0.1745; 0.8727; 0; 0; 0];
 options = sdpsettings;
-innerController = optimizer(constraints, objective, options, x(:,1), u(:,1));
-simQuad(sys, innerController, bForces, x0, T);
+% innerController = optimizer(constraints, objective, options, x(:,1), u(:,1));
+% simQuad(sys, innerController, bForces, x0, T);
 
 %%%%%%%%%%%%%%%%%%%%%  Reference Tracking %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART II - Reference tracking...\n')
@@ -78,30 +78,53 @@ fprintf('PART II - Reference tracking...\n')
 % Clear variables
 clearvars x u objective constraints innerController
 
-% TODO: Define variables for controller
-r1 = sdpvar(nx,1);      % reference
-xr = sdpvar(nx,1);      % reference tracking steady-state
-ur = sdpvar(nu,1);      % reference tracking steady-input
-x = sdpvar(nx,N+1);     % states
-u = sdpvar(nu,N);       % inputs
+% Define variables for controller
+ref = sdpvar(4,1);      % reference
+% xr = sdpvar(nx,1);      % reference tracking steady-state
+% ur = sdpvar(nu,1);      % reference tracking steady-input
+x = sdpvar(nx,N+1);     % delta states
+u = sdpvar(nu,N);       % delta inputs
 
-% TODO: Define matrices for contraints
+% Use formula of L07 slide 14 to compute xr and ur directly, because the
+% matrix has full rank.
+C = [eye(4), zeros(4,3)];
+Z = [eye(nx) - sys.A, - sys.B; C, zeros(nu)];
+ss = Z\[zeros(nx,1); ref];
+xr = ss(1:nx);
+ur = ss(nx+1:end);
 
+% Define matrices for contraints as on slide 18/19 of L07
+Hx = [eye(nx); -eye(nx)];
+kx = [stateConstraint; stateConstraint];
+Hu = [eye(nu); -eye(nu)];
+ku = [ones(nu,1)-us; us];
 
-% TODO: Genereate contraints and objective
-contraints = [];
+% Genereate contraints and objective
+constraints = [];
 objective = 0;
 for i = 1:N
+    % Add state evolution constraints.
+    constraints = [constraints, x(:,i+1)-xr == sys.A*(x(:,i)-xr) + sys.B*(u(:,i)-ur)];
+    % Add state constraints.
+    constraints = [constraints, Hx*(x(:,i)-xr) <= kx - Hx*xr];
+    % Add input constraints.
+    constraints = [constraints, Hu*(u(:,i)-ur) <= ku - Hu*ur];
     
+    % Add to objective function
+    objective = objective + (x(:,i)-xr)' * Q * (x(:,i)-xr) + (u(:,i)-ur)' * R * (u(:,i)-ur);
 end
-% TODO: Add final contraints
+% Add final constraints and objective
+constraints = [constraints, Hx*(x(:,N+1)-xr) <= kx - Hx*xr];
+objective = objective + (x(:,i)-xr)' * P * (x(:,i)-xr);
 
+% Construct optimizer
+options = sdpsettings;
+innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u(:,1));
 
-% TODO: Construct optimizer
-
-
-% TODO: Simulate
-
+% Simulate
+x0 = zeros(nx,1);
+r = [1.0; 0.1745; -0.1745; 1.7453];
+simQuad(sys, innerController, bForces, x0, T, r);
 
 %%%%%%%%%%%%%%%  First simulation of the nonlinear model %%%%%%%%%%%%%%%%%
 fprintf('PART III - First simulation of the nonlinear model...\n')
