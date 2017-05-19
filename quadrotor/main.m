@@ -21,7 +21,6 @@ disp('Data successfully loaded')
 [nx, nu] = size(sys.B);                         % State and input dimenstions
 T = 10;                                         % Simulation time [s]
 bForces = 0;                                    % Determines if FORCES is used
-x0 = [-1; 0.1745; -0.1745; 0.8727; 0; 0; 0];    % Initial condition
 
 %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART I - First MPC controller...\n')
@@ -66,14 +65,43 @@ end
 constraints = [constraints, A_X_f * x(:,N+1) <= b_X_f];
 objective = x(:,N+1)' * P * x(:,N+1);
 
-% Call the optimizer
+% Call the optimizer with given initial condition
+x0 = [-1; 0.1745; -0.1745; 0.8727; 0; 0; 0];
 options = sdpsettings;
 innerController = optimizer(constraints, objective, options, x(:,1), u(:,1));
 simQuad(sys, innerController, bForces, x0, T);
 
-%%%%%%%%%%%%%%%%%%%%%  Reference Tracking %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%  Reference Tracking %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART II - Reference tracking...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+% Clear variables
+clearvars x u objective constraints innerController
+
+% TODO: Define variables for controller
+r1 = sdpvar(nx,1);      % reference
+xr = sdpvar(nx,1);      % reference tracking steady-state
+ur = sdpvar(nu,1);      % reference tracking steady-input
+x = sdpvar(nx,N+1);     % states
+u = sdpvar(nu,N);       % inputs
+
+% TODO: Define matrices for contraints
+
+
+% TODO: Genereate contraints and objective
+contraints = [];
+objective = 0;
+for i = 1:N
+    
+end
+% TODO: Add final contraints
+
+
+% TODO: Construct optimizer
+
+
+% TODO: Simulate
+
 
 %%%%%%%%%%%%%%%  First simulation of the nonlinear model %%%%%%%%%%%%%%%%%
 fprintf('PART III - First simulation of the nonlinear model...\n')
