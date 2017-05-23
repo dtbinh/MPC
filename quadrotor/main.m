@@ -120,7 +120,7 @@ objective = objective + (x(:,i)-xr)' * P * (x(:,i)-xr);
 
 % Construct optimizer
 options = sdpsettings;
-innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u(:,1));
+% innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u(:,1));
 
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
@@ -136,11 +136,14 @@ end
 fprintf('PART III - First simulation of the nonlinear model...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%% %%%%%%%%%%%%%%%%%%%%%  Offset free MPC  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+% Simulate the nonlinear model
+% sim('simulation1')
+
+%%%%%%%%%%%%%%%%%%%%%%%  Offset free MPC  %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART IV - Offset free MPC...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-clearvars x u objective constraints innerController ref
+clearvars x u objective constraints innerController ref ss xr ur
 
 % Define parameter for reference tracking
 constantReference = 1;
@@ -149,30 +152,34 @@ constantReference = 1;
 ref = sdpvar(4,1);      % reference
 x = sdpvar(nx,N+1);     % states
 u = sdpvar(nu,N);       % inputs
-dist = sdpvar(nx,1);    % disturbance
+d_est = sdpvar(nx,1);       % disturbance
 
-% Define the augmented system
+% Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
+% y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
+A = sys.A;
+B = sys.B;
 C = [eye(4), zeros(4,3)];
-A_aug = [sys.A eye(nx); zeros(nx) eye(nx)];
-B_aug = [sys.B ; zeros(size(sys.B))];
-C_aug = [eye(7) eye(7)];
+B_d = eye(nx);
+C_d = zeros(4,nx);
 
-% Use lqr to find a stabilizing observer
-q = 0.1;
-L = lqr(A_aug',C_aug',B_aug*B_aug',q*eye(nx))';
-
-% Checking the stability of the error-dynamics
-% eig(A_aug'-C_aug'*L')
+% Define state observer dynamics as
+% [x_hat(k+1); d_hat(k+1)] = (A_aug - L C_aug) [x_hat(k); d_hat(k)] +
+% [B_aug L] [u(k) x(k)], where L is chosen such thath the state observer
+% dynamics are stable and go to zero.
+A_aug = [A B_d; zeros(nx) eye(nx)];
+B_aug = [B; zeros(nx,nu)];
+C_aug = [eye(nx) eye(nx)];
+L = lqr(A_aug',C_aug',B_aug*B_aug',0.5*eye(nx))';
 
 % Defining the filter
 filter.Af = A_aug-L*C_aug; filter.Bf = [B_aug L];
 
 % Use formula of L07 slide 29 to compute xr and ur directly, which is not a
 % problem, since the matrix has full rank.
-Z = [eye(nx) - sys.A, - sys.B; C, zeros(nu)];
-ss = Z\[-dist; ref - C*dist];
-xr = ss(1:nx);
-ur = ss(nx+1:end);
+Z = [eye(nx) - A, - B; C, zeros(nu)];
+ss = Z\[-B_d*d_est; ref - C_d*d_est];
+xs = ss(1:nx);
+us = ss(nx+1:end);
 
 % Define matrices for contraints as on slide 18/19 of L07
 Hx = [eye(nx); -eye(nx)];
@@ -185,22 +192,22 @@ constraints = [];
 objective = 0;
 for i = 1:N
     % Add state evolution constraints.
-    constraints = [constraints, x(:,i+1)-xr == sys.A*(x(:,i)-xr) + sys.B*(u(:,i)-ur)];
+    constraints = [constraints, x(:,i+1)-xs == sys.A*(x(:,i)-xs) + sys.B*(u(:,i)-us)];
     % Add state constraints.
-    constraints = [constraints, Hx*(x(:,i)-xr) <= kx - Hx*xr];
+    constraints = [constraints, Hx*(x(:,i)-xs) <= kx - Hx*xs];
     % Add input constraints.
-    constraints = [constraints, Hu*(u(:,i)-ur) <= ku - Hu*ur];
+    constraints = [constraints, Hu*(u(:,i)-us) <= ku - Hu*us];
     
     % Add to objective function
-    objective = objective + (x(:,i)-xr)' * Q * (x(:,i)-xr) + (u(:,i)-ur)' * R * (u(:,i)-ur);
+    objective = objective + (x(:,i)-xs)' * Q * (x(:,i)-xs) + (u(:,i)-us)' * R * (u(:,i)-us);
 end
 % Add final constraints and objective
-constraints = [constraints, Hx*(x(:,N+1)-xr) <= kx - Hx*xr];
-objective = objective + (x(:,i)-xr)' * P * (x(:,i)-xr);
+constraints = [constraints, Hx*(x(:,N+1)-xs) <= kx - Hx*xs];
+objective = objective + (x(:,i)-xs)' * P * (x(:,i)-xs);
 
 % Construct optimizer
 options = sdpsettings;
-innerController = optimizer(constraints, objective, options, [x(:,1)', ref', dist']', u(:,1));
+innerController = optimizer(constraints, objective, options, [x(:,1)', ref', d_est']', u(:,1));
 
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
@@ -211,7 +218,7 @@ else
     r = [0.8*ones(size(T_vec)); 0.12*sin(T_vec); -0.12*sin(T_vec); pi/2*ones(size(T_vec))];
 end
 
-simQuad(sys, innerController, bForces, x0, T, r, filter, dist);
+simQuad(sys, innerController, bForces, x0, T, r, filter, []);
 
 %%%%%%%%%%%%%%%%%%  Simulation of the nonlinear model %%%%%%%%%%%%%%%%%%%%
 fprintf('PART V - simulation of the nonlinear model...\n')
