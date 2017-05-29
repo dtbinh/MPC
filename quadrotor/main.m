@@ -27,16 +27,16 @@ fprintf('PART I - First MPC controller...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Initialization----------------------------------------------------------
-x0 = [-1; 0.1745; 0.1745; 0.8727; 0; 0; 0];
-N = 3;
+x0 = [-1; 0.1745; -0.1745; 0.8727; 0; 0; 0];
+N = 10;
 Q = eye(nx);
 R = eye(nu);
 % TUNNING -------
 zdot  = 1;
 alpha = 9;  % ROLL
 beta  = 17; % PTICH
-Q(alpha) = 100;
-Q(beta) = 20;
+Q(alpha) = 80;
+Q(beta) = 10;
 
 % TUNNING -------
 
@@ -48,7 +48,7 @@ inputConstraint.Min = [0; 0; 0; 0] - us;        % Add Steady State to Constraint
 % Create Constraints in Matrix-Form: Hx*x <= kx | Hu*u <= ku
 Hx = [eye(nx);-eye(nx)];
 kx = [stateConstraint.Max; -stateConstraint.Min];
-Hu = [eye(nu);-eye(nu)];
+Hu = [eye(nu);-eye( nu)];
 ku = [inputConstraint.Max; -inputConstraint.Min];
 
 % Final Set
@@ -79,8 +79,8 @@ for i=1:N
 end
 
 % Final Constraint / Costs
-% constraints = [constraints; Hx_f*x(:,N+1)<=kx_f]; % final state constraints
-% objective = objective + x(:,N+1)'*P_inf*x(:,N+1); % final costs
+constraints = [constraints; Hx_f*x(:,N+1)<=kx_f]; % final state constraints
+objective = objective + x(:,N+1)'*P_inf*x(:,N+1); % final costs
 
 
 options = sdpsettings;
