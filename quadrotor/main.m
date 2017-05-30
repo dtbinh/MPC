@@ -36,7 +36,7 @@ zdot  = 1;
 alpha = 9;  % ROLL
 beta  = 17; % PTICH
 Q(alpha) = 80;
-Q(beta) = 10;
+Q(beta) = 30;
 
 % TUNNING -------
 
@@ -176,7 +176,7 @@ else
     r = [1.0*ones(size(T_vec)); 0.1745*sin(T_vec); -0.1745*sin(T_vec); pi/2*ones(size(T_vec))];
 end
 
-%% 
+
 clearvars  innerController
 options = sdpsettings;
 innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u(:,1))  % 1st arg: input to funciotn, 2nd arg: output to optimizer;
@@ -185,12 +185,12 @@ innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u
 % Create controller object (generates code)
 % for a complete list of codeoptions, see 
 % https://www.embotech.com/FORCES-Pro/User-Manual/Low-level-Interface/Solver-Options
-codeoptions = getOptions('simpleMPC_solver'); % give solver a name
+% codeoptions = getOptions('simpleMPC_solver'); % give solver a name
 % innerController = optimizerFORCES(constraints, objective, codeoptions, [x(:,1)', ref']', u(:,1), {'xinit'}, {'u0'});
 % [output,exitflag,info] = simpleMPC_solver({[x0',r']'});
-tic
-simpleMPC_solver({[x0',r']'})
-toc
+% tic
+% simpleMPC_solver({[x0',r']'})
+% toc
 %vs
 tic
 innerController({[x0',r']'})
