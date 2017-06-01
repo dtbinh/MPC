@@ -177,7 +177,7 @@ filter.Bf = [B_aug L];
 % Use formula of L07 slide 29 to compute xr and ur directly, which is not a
 % problem, since the matrix has full rank.
 Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
-ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
+ss = Z\[-B_d*d_est; ref - 0*C_d(1:4,:)*d_est];
 xr = ss(1:nx);
 ur = ss(nx+1:end);
 
