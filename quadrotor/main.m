@@ -257,11 +257,11 @@ ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
 xr = ss(1:nx);
 ur = ss(nx+1:end);
 
-% Define matrices for contraints as on slide 18/19 of L07
-Hx = [eye(nx); -eye(nx)];
-kx = [stateConstraint; stateConstraint];
-Hu = [eye(nu); -eye(nu)];
-ku = [ones(nu,1)-us; us];
+% Create Constraints in Matrix-Form: Hx*x <= kx | Hu*u <= ku
+Hx = [eye(nx);-eye(nx)];
+kx = [stateConstraint.Max; -stateConstraint.Min];
+Hu = [eye(nu);-eye( nu)];
+ku = [inputConstraint.Max; -inputConstraint.Min];
 
 % Genereate contraints and objective
 constraints = [];
@@ -279,7 +279,7 @@ for i = 1:N
 end
 % Add final constraints and objective
 constraints = [constraints, Hx*(x(:,N+1)) <= kx];
-objective = objective + (x(:,i)-xr)' * P * (x(:,i)-xr);
+objective = objective + (x(:,i)-xr)' * P_inf * (x(:,i)-xr);
 
 % Construct optimizer
 options = sdpsettings;
@@ -312,5 +312,5 @@ fprintf('PART VII - Soft Constraints...\n')
 fprintf('PART VIII - FORCES Pro...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-[xt ut t rt deltat] 
+% [xt ut t rt deltat] 
 
