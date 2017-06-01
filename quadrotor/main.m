@@ -29,7 +29,7 @@ fprintf('PART I - First MPC controller...\n')
 % Chose parameters N, Q, R, P. Chose final cost to be the the solution of
 % DARE of the unconstrained LQR control law.
 N = 20;
-Q = 10*eye(nx);
+Q = diag([1 80 30 1 1 1 1]);
 R = eye(nu);
 [K_inf, P, ~] = dlqr(sys.A, sys.B, Q, R);
 
@@ -158,9 +158,9 @@ d_est = sdpvar(nx,1);       % disturbance
 % y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
 A = sys.A;
 B = sys.B;
-C = [eye(4), zeros(4,3)];
+C = eye(nx);
 B_d = eye(nx);
-C_d = zeros(4,nx);
+C_d = eye(nx);
 
 % Define state observer dynamics as
 % [x_hat(k+1); d_hat(k+1)] = (A_aug - L C_aug) [x_hat(k); d_hat(k)] +
@@ -169,17 +169,23 @@ C_d = zeros(4,nx);
 A_aug = [A B_d; zeros(nx) eye(nx)];
 B_aug = [B; zeros(nx,nu)];
 C_aug = [eye(nx) eye(nx)];
-L = lqr(A_aug',C_aug',B_aug*B_aug',0.5*eye(nx))';
+
+Q_ = diag([0.01*ones(1,nx) [10 1 1 10 1 1 1 ]]);
+R_ = eye(nx);
+L = dlqr(A_aug',C_aug',Q_,R_)';
+% L = [eye(nx); diag([0.1 0.1 1 0.1 1 1 1])];
 
 % Defining the filter
-filter.Af = A_aug-L*C_aug; filter.Bf = [B_aug L];
+filter.Af = A_aug-L*C_aug;
+abs(eig(filter.Af))
+filter.Bf = [B_aug L];
 
 % Use formula of L07 slide 29 to compute xr and ur directly, which is not a
 % problem, since the matrix has full rank.
-Z = [eye(nx) - A, - B; C, zeros(nu)];
-ss = Z\[-B_d*d_est; ref - C_d*d_est];
-xs = ss(1:nx);
-us = ss(nx+1:end);
+Z = [A-eye(nx), B; C(1:4,:), zeros(nu)];
+ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
+xr = ss(1:nx);
+ur = ss(nx+1:end);
 
 % Define matrices for contraints as on slide 18/19 of L07
 Hx = [eye(nx); -eye(nx)];
@@ -192,18 +198,18 @@ constraints = [];
 objective = 0;
 for i = 1:N
     % Add state evolution constraints.
-    constraints = [constraints, x(:,i+1)-xs == sys.A*(x(:,i)-xs) + sys.B*(u(:,i)-us)];
+    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*d_est];
     % Add state constraints.
-    constraints = [constraints, Hx*(x(:,i)-xs) <= kx - Hx*xs];
+    constraints = [constraints, Hx*(x(:,i)) <= kx];
     % Add input constraints.
-    constraints = [constraints, Hu*(u(:,i)-us) <= ku - Hu*us];
+    constraints = [constraints, Hu*(u(:,i)) <= ku];
     
     % Add to objective function
-    objective = objective + (x(:,i)-xs)' * Q * (x(:,i)-xs) + (u(:,i)-us)' * R * (u(:,i)-us);
+    objective = objective + (x(:,i)-xr)' * Q * (x(:,i)-xr) + (u(:,i)-ur)' * R * (u(:,i)-ur);
 end
 % Add final constraints and objective
-constraints = [constraints, Hx*(x(:,N+1)-xs) <= kx - Hx*xs];
-objective = objective + (x(:,i)-xs)' * P * (x(:,i)-xs);
+constraints = [constraints, Hx*(x(:,N+1)) <= kx];
+objective = objective + (x(:,i)-xr)' * P * (x(:,i)-xr);
 
 % Construct optimizer
 options = sdpsettings;
