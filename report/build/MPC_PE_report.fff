@@ -445,7 +445,7 @@
             \caption{Disturbance of $\dot{\alpha}$ and $\dot{\beta}$}
         \end{subfigure}
 
-        \caption{Nonlinear model with hexagon signal.}
+        \caption{Response of the nonlinear model with hexagon signal.}
         \label{fig:nonlinear_model_hexagon_signal}
 \end{figure}
 \efloatseparator
@@ -518,7 +518,7 @@
             \caption{Disturbance of $\dot{\alpha}$ and $\dot{\beta}$}
         \end{subfigure}
 
-        \caption{Nonlinear model with lemniscate signal.}
+        \caption{Response of the nonlinear model with lemniscate signal.}
         \label{fig:nonlinear_model_lemniscate_signal}
 \end{figure}
 \efloatseparator
