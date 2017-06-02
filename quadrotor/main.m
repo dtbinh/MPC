@@ -15,7 +15,7 @@ load('quadData.mat')
 outerController = getOuterController(Ac);
 disp('Data successfully loaded')
 
-%%  ADD YOUR CODE BELOW THIS LINE %%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%% ADD YOUR CODE BELOW THIS LINE %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Define some constants.
 [nx, nu] = size(sys.B); % State and input dimenstions
@@ -52,12 +52,13 @@ kx_f = invSet.b;
 fprintf('PART I - First MPC controller...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Define yalmip variables for states and inputs
+% Define yalmip variables for x and u
 x = sdpvar(nx,N+1);
 u = sdpvar(nu,N);
 
 % Init constraints and objective function
-constraints = [];objective = 0;
+constraints = [];
+objective = 0;
 for i=1:N
     % Add system dynamics
     constraints = [constraints; x(:,i+1) == sys.A*x(:,i) + sys.B*u(:,i)];
@@ -74,13 +75,12 @@ constraints = [constraints; Hx_f*x(:,N+1)<=kx_f];
 objective = objective + x(:,N+1)'*P_inf*x(:,N+1);
 
 % Construct optimizer
-
 options = sdpsettings;
 innercontroller = optimizer(constraints, objective, options, x(:,1), u(:,1));
 
 % Simulate with initial condition
 x0 = [-1; 0.1745; -0.1745; 0.8727; 0; 0; 0];
-simQuad(sys, innercontroller, 0, x0, T);
+% simQuad(sys, innercontroller, 0, x0, T);
 
 %% %%%%%%%%%%%%%%%%%%%%%  Reference Tracking %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART II - Reference tracking...\n')
@@ -89,9 +89,7 @@ fprintf('PART II - Reference tracking...\n')
 % Clear variables
 clearvars x u objective constraints innerController
 
-
-
-% Define yalmip states, inputs and reference
+% Define yalmip x, u and reference
 x = sdpvar(nx,N+1);
 u = sdpvar(nu,N);
 ref = sdpvar(4,1);
@@ -128,10 +126,10 @@ innerController = optimizer(constraints, objective, options, [x(:,1)', ref']', u
 % Simulate with constant and varying reference
 x0 = zeros(nx,1);
 r_const = [1.0; 0.1745; -0.1745; 1.7453];
-[~, ~, ~, averageT_QP_5 ,~] = simQuad(sys, innerController, 0, x0, T, r_const);
+% [~, ~, ~, averageT_QP_5 ,~] = simQuad(sys, innerController, 0, x0, T, r_const);
 T_vec = 0:sys.Ts:T;
 r_var = [1.0*ones(size(T_vec)); 0.1745*sin(T_vec); -0.1745*sin(T_vec); pi/2*ones(size(T_vec))];
-simQuad(sys, innerController, 0, x0, T, r_var);
+% simQuad(sys, innerController, 0, x0, T, r_var);
 
 %% %%%%%%%%%%%%%%%  First simulation of the nonlinear model %%%%%%%%%%%%%%%
 fprintf('PART III - First simulation of the nonlinear model...\n')
@@ -144,16 +142,14 @@ sim('simulation1')
 fprintf('PART IV - Offset free MPC...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Clear previous variables.
 clearvars x u objective constraints innerController ref ss xr ur
-
-% seed = 2;
-% rng(seed);
 
 % Define variables for controller
 ref = sdpvar(4,1);      % reference
-x = sdpvar(nx,N+1);     % states
-u = sdpvar(nu,N);       % inputs
-d_est = sdpvar(nx,1);       % disturbance
+x = sdpvar(nx,N+1);     % x
+u = sdpvar(nu,N);       % u
+dest = sdpvar(nx,1);   % disturbance
 
 % Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
 % y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
@@ -176,18 +172,17 @@ R_ = 10*eye(nx);
 % For this Q_ and R_ also the offset-free trackign with r_const is feasible
 % Q_ = diag(ones(2*nx,1));
 % R_ = diag(ones(nx,1));
-
 L = dlqr(A_aug',C_aug',Q_,R_)';
 
 % Defining the filter
 filter.Af = A_aug - L*C_aug;
-abs(eig(filter.Af))
+% abs(eig(filter.Af))
 filter.Bf = [B_aug L];
 
 % Use formula of L07 slide 29 to compute xr and ur directly, which is not a
 % problem, since the matrix has full rank.
 Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
-ss = Z\[-B_d*d_est; ref - 0*C_d(1:4,:)*d_est];
+ss = Z\[-B_d*dest; ref - 0*C_d(1:4,:)*dest];
 xr = ss(1:nx);
 ur = ss(nx+1:end);
 
@@ -196,7 +191,7 @@ constraints = [];
 objective = 0;
 for i = 1:N
     % Add state evolution constraints.
-    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*d_est];
+    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*dest];
     % Add state constraints.
     constraints = [constraints, Hx*(x(:,i)) <= kx];
     % Add input constraints.
@@ -211,12 +206,12 @@ objective = objective + (x(:,i)-xr)' * P_inf * (x(:,i)-xr);
 
 % Construct optimizer
 options = sdpsettings;
-innerController = optimizer(constraints, objective, options, [x(:,1)', ref', d_est']', u(:,1));
+innerController = optimizer(constraints, objective, options, [x(:,1)', ref', dest']', u(:,1));
 
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
 r_const = [0.8; 0.12; -0.12; pi/2];
-[~, ~, ~, averageT_QP_9 ,~] = simQuad(sys, innerController, 0, x0, T, r_const, filter, []);
+% [~, ~, ~, averageT_QP_9 ,~] = simQuad(sys, innerController, 0, x0, T, r_const, filter, []);
 T_vec = 0:sys.Ts:T;
 r_var = [0.8*ones(size(T_vec)); 0.12*sin(T_vec); -0.12*sin(T_vec); pi/2*ones(size(T_vec))];
 % simQuad(sys, innerController, 0, x0, T, r_var, filter, []);
@@ -232,21 +227,81 @@ sim('simulation2')
 fprintf('PART VI - Slew Rate Constraints...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-% Clear previos controller instance.
-clearvars innerController
+% Clear previous variables.
+clearvars x u objective constraints innerController ref ss xr ur
+
+% Define variables for controller
+ref = sdpvar(4,1);      % reference
+x = sdpvar(nx,N+1);     % x
+u = sdpvar(nu,N);       % u
+dest = sdpvar(nx,1);   % disturbance
+u_prev = sdpvar(nu,1);  % previous input
+
+% Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
+% y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
+C = eye(nx);
+B_d = eye(nx);
+C_d = zeros(nx);        % Set to Zero!!
+
+% Define state observer dynamics as
+% [x_hat(k+1); d_hat(k+1)] = (A_aug - L C_aug) [x_hat(k); d_hat(k)] +
+% [B_aug L] [u(k) x(k)], where L is chosen such thath the state observer
+% dynamics are stable and go to zero.
+A_aug = [sys.A B_d; zeros(nx) eye(nx)];
+B_aug = [sys.B; zeros(nx,nu)];
+C_aug = [eye(nx) eye(nx)];
+
+% Choose cost matrices for observer design
+Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
+R_ = 10*eye(nx);
+
+% For this Q_ and R_ also the offset-free trackign with r_const is feasible
+% Q_ = diag(ones(2*nx,1));
+% R_ = diag(ones(nx,1));
+L = dlqr(A_aug',C_aug',Q_,R_)';
+
+% Defining the filter
+filter.Af = A_aug - L*C_aug;
+% abs(eig(filter.Af))
+filter.Bf = [B_aug L];
+
+% Use formula of L07 slide 29 to compute xr and ur directly, which is not a
+% problem, since the matrix has full rank.
+Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
+ss = Z\[-B_d*dest; ref - 0*C_d(1:4,:)*dest];
+xr = ss(1:nx);
+ur = ss(nx+1:end);
+
+% Init constraints and objective function
+constraints = [];
+objective = 0;
+for i = 1:N
+    % Add state evolution constraints.
+    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*dest];
+    % Add state constraints.
+    constraints = [constraints, Hx*(x(:,i)) <= kx];
+    % Add input constraints.
+    constraints = [constraints, Hu*(u(:,i)) <= ku];
+    
+    % Add to objective function
+    objective = objective + (x(:,i)-xr)' * Q * (x(:,i)-xr) + (u(:,i)-ur)' * R * (u(:,i)-ur);
+end
+% Add final constraints and objective
+constraints = [constraints, Hx*(x(:,N+1)) <= kx];
+objective = objective + (x(:,i)-xr)' * P_inf * (x(:,i)-xr);
 
 % Add slew rate constraints to previously defined contraints.  For delta =
 % 0.25125, roll and pitch angles start to overshoot and for delta = 0.25
 % the problem is infeasible. delta = 0.26 is okay.
-delta = 0.26;
-constraints = [constraints, abs(u_prev-u(:,1)) <= delta];
-for i = 1:N-1
-    constraints = [constraints, abs(u(:,i) - u(:,i+1)) <= delta];
+delta = 0.26*ones(nu,1);
+constraints = [constraints, (-delta <= u_prev - u(:,1) <= delta):'slew rate'];
+for i = 2:N
+    constraints = [constraints, (-delta <= u(:,i) - u(:,i-1) <= delta):'slew rate'];
 end
 
 % Construct optimizer
 options = sdpsettings;
-innerController = optimizer(constraints, objective, options, [x(:,1)', ref', u_prev', d_est']', u(:,1));
+innerController = optimizer(constraints, objective, options, [x(:,1)', ref', u_prev', dest']', u(:,1));
 
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
@@ -257,97 +312,39 @@ simQuad(sys, innerController, 0, x0, T, r_const, filter, [], 1);
 fprintf('PART VII - Soft Constraints...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-clearvars x u objective constraints innerController ref ss xr ur d_est
+% Define slack variable objective function parameters
+S = eye(nu);        % S > 0
+v = 1;              % v > lambda
 
-% seed = 2;
-% rng(seed);
+% Clear constraints, objective and controller instance.
+clearvars innerController
 
-% Define variables for controller
-ref = sdpvar(4,1);      % reference
-x = sdpvar(nx,N+1);     % states
-u = sdpvar(nu,N);       % inputs
-d_est = sdpvar(nx,1);   % disturbance
-u_prev = sdpvar(nu,1);  % Previous input
-epsilon = sdpvar(1,1);  % Soft Constraint
+% Define soft constraint variables
+epsilon = sdpvar(nu,N);
 
-%Set lagrange multiplier to the deltat from the above MPC-Probelm
-lagrange = 0
+% Drop slew rate constraints from previous task
+constraints = constraints('');
 
-% Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
-% y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
-C = eye(nx);
-B_d = eye(nx);
-C_d = zeros(nx);        % Set to Zero!
-
-% Define state observer dynamics as
-% [x_hat(k+1); d_hat(k+1)] = (A_aug - L C_aug) [x_hat(k); d_hat(k)] +
-% [B_aug L] [u(k) x(k)], where L is chosen such thath the state observer
-% dynamics are stable and go to zero.
-A_aug = [sys.A B_d; zeros(nx) eye(nx)];
-B_aug = [sys.B; zeros(nx,nu)];
-C_aug = [eye(nx) eye(nx)];
-
-Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
-R_ = 10*eye(nx);
-
-% For this Q_ and R_ also the offset-free trackign with r_const is feasible
-% Q_ = diag(ones(2*nx,1));
-% R_ = diag(ones(nx,1));
-
-L = dlqr(A_aug',C_aug',Q_,R_)';
-
-% Defining the filter
-filter.Af = A_aug - L*C_aug;
-abs(eig(filter.Af))
-filter.Bf = [B_aug L];
-
-% Use formula of L07 slide 29 to compute xr and ur directly, which is not a
-% problem, since the matrix has full rank.
-Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
-ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
-xr = ss(1:nx);
-ur = ss(nx+1:end);
-
-% Init constraints and objective function
-constraints = [];
-objective = 0;
-for i = 1:N
-    % Add state evolution constraints.
-    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*d_est];
-    % Add state constraints.
-    constraints = [constraints, Hx*(x(:,i)) <= kx];
-    % Add input constraints.
-    constraints = [constraints, Hu*(u(:,i)) <= ku];
-   % Add to objective function
-    objective = objective + (x(:,i)-xr)' * Q * (x(:,i)-xr) + (u(:,i)-ur)' * R * (u(:,i)-ur);
+% Add soft slew rate constraints and objective
+constraints = [constraints, (-delta - epsilon(:,1) <= u_prev - u(:,1) <= delta + epsilon(:,1)):'soft slew rate'];
+constraints = [constraints, (epsilon(:,1) >= 0):'positive slackness'];
+objective = objective + v*norm(epsilon(:,1),1) + epsilon(:,1)' * S * epsilon(:,1);
+for i = 2:N
+    % Add soft slew rate constraints
+    constraints = [constraints, (-delta - epsilon(:,i) <= u(:,i) - u(:,i-1) <= delta + epsilon(:,i)):'soft slew rate'];
+    constraints = [constraints, (epsilon(:,i) >= 0):'positive slackness'];
+    % Add slack variables cost to objective
+    objective = objective + v*norm(epsilon(:,i),1) + epsilon(:,i)' * S * epsilon(:,i);
 end
-
-
-% Slew Rate--------------------------------------------------------------
-useSlewRateConst = 2;
-s = 1;      % s > 0
-v = 1;      % v > lambda*
-% Slew Rate Constraints
-constraints = [constraints, abs(u_prev-u(:,1)) <= epsilon];
-% Slew Rate Cost
- objective = objective + v*epsilon + s*epsilon^2;
-% Slew Rate---------------------------------------------------------------
-
- 
- 
-% Add final constraints and objective
-constraints = [constraints, Hx*(x(:,N+1)) <= kx];
-objective = objective + (x(:,i)-xr)' * P_inf * (x(:,i)-xr);
 
 % Construct optimizer
 options = sdpsettings;
-innerController = optimizer(constraints, objective, options, [x(:,1)', ref', u_prev', d_est']', u(:,1));
+innerController = optimizer(constraints, objective, options, [x(:,1)', ref', u_prev', dest']', [u(:,1) epsilon(:,1)]);
 
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
 r_const = [0.8; 0.12; -0.12; pi/2];
-[~, ~, ~, ~, deltat] = simQuad(sys, innerController, 0, x0, T, r_const, filter, [], useSlewRateConst);
-
+[~, ~, ~, ~, deltat] = simQuad(sys, innerController, 0, x0, T, r_const, filter, [], 2);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%  FORCES Pro %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART VIII - FORCES Pro...\n')
@@ -362,7 +359,7 @@ fprintf('PART XX - Reference tracking with FORCES...\n')
 clearvars x u  ref objective constraints innerController
 
 bForces = 1;
-% Define yalmip states, inputs and reference
+% Define yalmip x, u and reference
 x = sdpvar(nx,N+1);
 u = sdpvar(nu,N);
 ref = sdpvar(4,1);
@@ -411,15 +408,15 @@ fprintf('PART VI - Slew Rate Constraints with FORCES...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 
-clearvars x u objective constraints innerController ref ss xr ur d_est
+clearvars x u objective constraints innerController ref ss xr ur dest
 
 bForces = 1;
 
 % Define variables for controller
 ref = sdpvar(4,1);      % reference
-x = sdpvar(nx,N+1);     % states
-u = sdpvar(nu,N);       % inputs
-d_est = sdpvar(nx,1);   % disturbance
+x = sdpvar(nx,N+1);     % x
+u = sdpvar(nu,N);       % u
+dest = sdpvar(nx,1);   % disturbance
 u_prev = sdpvar(nu,1);  % Previous input
 
 % Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
@@ -453,7 +450,7 @@ filter.Bf = [B_aug L];
 % Use formula of L07 slide 29 to compute xr and ur directly, which is not a
 % problem, since the matrix has full rank.
 Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
-ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
+ss = Z\[-B_d*dest; ref - C_d(1:4,:)*dest];
 xr = ss(1:nx);
 ur = ss(nx+1:end);
 
@@ -462,7 +459,7 @@ constraints = [];
 objective = 0;
 for i = 1:N
     % Add state evolution constraints.
-    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*d_est];
+    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*dest];
     % Add state constraints.
     constraints = [constraints, Hx*(x(:,i)) <= kx];
     % Add input constraints.
@@ -477,7 +474,7 @@ objective = objective + (x(:,i)-xr)' * P_inf * (x(:,i)-xr);
 
 % Construct optimizer WITH FORCES
 codeoptions = getOptions('simpleMPC_solver'); % give solver a name
-innerController = optimizerFORCES(constraints, objective, codeoptions, [x(:,1)', ref', u_prev', d_est']', u(:,1), {'xinit'}, {'u0'});
+innerController = optimizerFORCES(constraints, objective, codeoptions, [x(:,1)', ref', u_prev', dest']', u(:,1), {'xinit'}, {'u0'});
 
 
 % Simulate  with constant reference
