@@ -48,7 +48,7 @@ invSet = sysCL.invariantSet();
 Hx_f = invSet.A;
 kx_f = invSet.b;
 
- %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART I - First MPC controller...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -169,8 +169,8 @@ A_aug = [sys.A B_d; zeros(nx) eye(nx)];
 B_aug = [sys.B; zeros(nx,nu)];
 C_aug = [eye(nx) eye(nx)];
 
+% Choose cost matrices for observer design
 Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
-
 R_ = 10*eye(nx);
 
 % For this Q_ and R_ also the offset-free trackign with r_const is feasible
@@ -187,7 +187,7 @@ filter.Bf = [B_aug L];
 % Use formula of L07 slide 29 to compute xr and ur directly, which is not a
 % problem, since the matrix has full rank.
 Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
-ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
+ss = Z\[-B_d*d_est; ref - 0*C_d(1:4,:)*d_est];
 xr = ss(1:nx);
 ur = ss(nx+1:end);
 
@@ -219,7 +219,7 @@ r_const = [0.8; 0.12; -0.12; pi/2];
 [~, ~, ~, averageT_QP_9 ,~] = simQuad(sys, innerController, 0, x0, T, r_const, filter, []);
 T_vec = 0:sys.Ts:T;
 r_var = [0.8*ones(size(T_vec)); 0.12*sin(T_vec); -0.12*sin(T_vec); pi/2*ones(size(T_vec))];
-simQuad(sys, innerController, 0, x0, T, r_var, filter, []);
+% simQuad(sys, innerController, 0, x0, T, r_var, filter, []);
 
 %% %%%%%%%%%%%%%%%%  Simulation of the nonlinear model %%%%%%%%%%%%%%%%%%%%
 fprintf('PART V - simulation of the nonlinear model...\n')
