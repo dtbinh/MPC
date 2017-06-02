@@ -329,6 +329,7 @@ x = sdpvar(nx,N+1);     % x
 u = sdpvar(nu,N);       % u
 dest = sdpvar(nx,1);    % disturbance
 u_prev = sdpvar(nu,1);  % previous input
+epsilon = sdpvar(nu,N); % Epsilon
 
 % Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
 % y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
@@ -406,7 +407,7 @@ innerController = optimizer(constraints, objective, options, [x(:,1); ref; u_pre
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
 r_const = [0.8; 0.12; -0.12; pi/2];
-[~, ~, ~, ~, deltat] = simQuad(sys, innerController, 0, x0, T, r_const, filter, [], 2);
+% [~, ~, ~, ~, deltat] = simQuad(sys, innerController, 0, x0, T, r_const, filter, [], 2);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%%%%  FORCES Pro %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART VIII - FORCES Pro...\n')
