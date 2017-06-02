@@ -232,79 +232,17 @@ sim('simulation2')
 fprintf('PART VI - Slew Rate Constraints...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
+% Clear previos controller instance.
+clearvars innerController
 
-clearvars x u objective constraints innerController ref ss xr ur d_est
-
-% seed = 2;
-% rng(seed);
-
-% Define variables for controller
-ref = sdpvar(4,1);      % reference
-x = sdpvar(nx,N+1);     % states
-u = sdpvar(nu,N);       % inputs
-d_est = sdpvar(nx,1);   % disturbance
-u_prev = sdpvar(nu,1);  % Previous input
-
-% Define system equations as x(k+1) = A x(k) + B u(k) + B_d d(k), 
-% y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
-C = eye(nx);
-B_d = eye(nx);
-C_d = zeros(nx);        % Set to Zero!
-
-% Define state observer dynamics as
-% [x_hat(k+1); d_hat(k+1)] = (A_aug - L C_aug) [x_hat(k); d_hat(k)] +
-% [B_aug L] [u(k) x(k)], where L is chosen such thath the state observer
-% dynamics are stable and go to zero.
-A_aug = [sys.A B_d; zeros(nx) eye(nx)];
-B_aug = [sys.B; zeros(nx,nu)];
-C_aug = [eye(nx) eye(nx)];
-
-Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
-R_ = 10*eye(nx);
-
-% For this Q_ and R_ also the offset-free trackign with r_const is feasible
-% Q_ = diag(ones(2*nx,1));
-% R_ = diag(ones(nx,1));
-
-L = dlqr(A_aug',C_aug',Q_,R_)';
-
-% Defining the filter
-filter.Af = A_aug - L*C_aug;
-abs(eig(filter.Af))
-filter.Bf = [B_aug L];
-
-% Use formula of L07 slide 29 to compute xr and ur directly, which is not a
-% problem, since the matrix has full rank.
-Z = [sys.A-eye(nx), sys.B; C(1:4,:), zeros(nu)];
-ss = Z\[-B_d*d_est; ref - C_d(1:4,:)*d_est];
-xr = ss(1:nx);
-ur = ss(nx+1:end);
-
-% Init constraints and objective function
-constraints = [];
-objective = 0;
-for i = 1:N
-    % Add state evolution constraints.
-    constraints = [constraints, x(:,i+1) == sys.A*(x(:,i)) + sys.B*(u(:,i)) + B_d*d_est];
-    % Add state constraints.
-    constraints = [constraints, Hx*(x(:,i)) <= kx];
-    % Add input constraints.
-    constraints = [constraints, Hu*(u(:,i)) <= ku];
-   % Add to objective function
-    objective = objective + (x(:,i)-xr)' * Q * (x(:,i)-xr) + (u(:,i)-ur)' * R * (u(:,i)-ur);
-end
-
-
-    
-% Slew Rate Constraints
-useSlewRateConst = 1;
-delta = 0.25;
+% Add slew rate constraints to previously defined contraints.  For delta =
+% 0.25125, roll and pitch angles start to overshoot and for delta = 0.25
+% the problem is infeasible. delta = 0.26 is okay.
+delta = 0.26;
 constraints = [constraints, abs(u_prev-u(:,1)) <= delta];
-
- 
-% Add final constraints and objective
-constraints = [constraints, Hx*(x(:,N+1)) <= kx];
-objective = objective + (x(:,i)-xr)' * P_inf * (x(:,i)-xr);
+for i = 1:N-1
+    constraints = [constraints, abs(u(:,i) - u(:,i+1)) <= delta];
+end
 
 % Construct optimizer
 options = sdpsettings;
@@ -313,11 +251,7 @@ innerController = optimizer(constraints, objective, options, [x(:,1)', ref', u_p
 % Simulate either with constant or varying reference
 x0 = zeros(nx,1);
 r_const = [0.8; 0.12; -0.12; pi/2];
- simQuad(sys, innerController, 0, x0, T, r_const, filter, [], useSlewRateConst);
-
-
-
-
+simQuad(sys, innerController, 0, x0, T, r_const, filter, [], 1);
 
 %% %%%%%%%%%%%%%%%%%%%%%%%%%  Soft Constraints %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART VII - Soft Constraints...\n')
