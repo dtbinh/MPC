@@ -133,7 +133,7 @@ simQuad(sys, innerController, 0, x0, T, r_var);
 
 % Construct FORCES Pro optimizer
 codeoptions = getOptions('simpleMPC_solver'); % give solver a name
-innerController_FORCES = optimizerFORCES(constraints, objective, codeoptions, [x(:,1)', ref']', u(:,1));%, {'xinit'}, {'u0'});
+innerController_FORCES_task5 = optimizerFORCES(constraints, objective, codeoptions, [x(:,1)', ref']', u(:,1));%, {'xinit'}, {'u0'});
 
 %% %%%%%%%%%%%%%%%  First simulation of the nonlinear model %%%%%%%%%%%%%%%
 fprintf('PART III - First simulation of the nonlinear model...\n')
@@ -415,9 +415,9 @@ fprintf('PART VIII - FORCES Pro...\n')
 % Simulate task 5 with FORCES Pro controller
 x0 = zeros(nx,1);
 r_const = [1.0; 0.1745; -0.1745; 1.7453];
-[~, ~, ~, rt_task5_FORCES ,~] = simQuad(sys, innerController_FORCES_task5, 0, x0, T, r_const)
+[~, ~, ~, rt_task5_FORCES ,~] = simQuad(sys, innerController_FORCES_task5, 1, x0, T, r_const)
 
 % Simulate task 9 with FORCES Pro controller
 x0 = zeros(nx,1);
 r_const = [0.8; 0.12; -0.12; pi/2];
-[~, ~, ~, rt_task9_FORCES ,~] = simQuad(sys, innerController_FORCES_task9, 0, x0, T, r_const, filter, [])
+[~, ~, ~, rt_task9_FORCES ,~] = simQuad(sys, innerController_FORCES_task9, 1, x0, T, r_const, filter, [])
