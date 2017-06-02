@@ -48,7 +48,7 @@ invSet = sysCL.invariantSet();
 Hx_f = invSet.A;
 kx_f = invSet.b;
 
- %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%
+%% %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART I - First MPC controller...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -169,8 +169,8 @@ A_aug = [sys.A B_d; zeros(nx) eye(nx)];
 B_aug = [sys.B; zeros(nx,nu)];
 C_aug = [eye(nx) eye(nx)];
 
+% Choose cost matrices for observer design
 Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
-
 R_ = 10*eye(nx);
 
 % For this Q_ and R_ also the offset-free trackign with r_const is feasible
@@ -219,7 +219,7 @@ r_const = [0.8; 0.12; -0.12; pi/2];
 [~, ~, ~, averageT_QP_9 ,~] = simQuad(sys, innerController, 0, x0, T, r_const, filter, []);
 T_vec = 0:sys.Ts:T;
 r_var = [0.8*ones(size(T_vec)); 0.12*sin(T_vec); -0.12*sin(T_vec); pi/2*ones(size(T_vec))];
-simQuad(sys, innerController, 0, x0, T, r_var, filter, []);
+% simQuad(sys, innerController, 0, x0, T, r_var, filter, []);
 
 %% %%%%%%%%%%%%%%%%  Simulation of the nonlinear model %%%%%%%%%%%%%%%%%%%%
 fprintf('PART V - simulation of the nonlinear model...\n')
