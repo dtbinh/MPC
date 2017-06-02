@@ -20,14 +20,11 @@ disp('Data successfully loaded')
 % Define some constants.
 [nx, nu] = size(sys.B); % State and input dimenstions
 T = 10;                 % Simulation time [s]
-N = 20;                 % Time horizon
+N = 30;                 % Time horizon
 
 % Define cost parameters
-Q = diag([1000 8000 6000 30 4 10 10]);
+Q = diag([10000 4000 9000 5 250 200 1]);
 R = 0.1*eye(nu);
-
-% R(2,2) = 0.01;
-% R(3,3)  = 0.01;
 
 % Define constraints
 stateConstraint.Max = [1; 10/180*pi; 10/180*pi; Inf; 15/180*pi; 15/180*pi; 60/180*pi;];
@@ -172,20 +169,11 @@ B_aug = [sys.B; zeros(nx,nu)];
 C_aug = [eye(nx) eye(nx)];
 
 Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
-% Q(1,1) = 10;
-% Q(3,3) = 100;
-% Q(4,4) = 5;
+
 R_ = 10*eye(nx);
-% R(1,1) = 0.10;
-% R(2,2) = 0.001;
-% R(3,3)  = 0.001;
-% R(4,4) = 0.01;
+
 
 L = dlqr(A_aug',C_aug',Q_,R_)';
-% L = [eye(nx); diag([0.1 0.1 1 0.1 1 1 1])];
-
-% p = [0.91, 0.92, 0.93, 0.901, 0.88, 0.8, 0.99, 0.95, 0.955, 0.99, 0.99, 0.98, 0.97, 0.99]';
-% L = place(A_aug',C_aug',p)'
 
 % Defining the filter
 filter.Af = A_aug - L*C_aug;
