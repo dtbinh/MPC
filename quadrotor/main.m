@@ -216,7 +216,7 @@ fprintf('PART V - simulation of the nonlinear model...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Simulate the nonlinear model
-sim('simulation2')
+% sim('simulation2')
 
 %% %%%%%%%%%%%%%%%%%%%%%  Slew Rate Constraints %%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART VI - Slew Rate Constraints...\n')
