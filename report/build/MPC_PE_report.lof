@@ -1,0 +1,9 @@
+\contentsline {figure}{\numberline {1}{\ignorespaces Response of first MPC controller.\relax }}{6}
+\contentsline {figure}{\numberline {2}{\ignorespaces Response for constant reference signal with offset.\relax }}{7}
+\contentsline {figure}{\numberline {3}{\ignorespaces Response for a slowly varying reference signal with offset.\relax }}{8}
+\contentsline {figure}{\numberline {4}{\ignorespaces Reference tracking response of the nonlinear model.\relax }}{9}
+\contentsline {figure}{\numberline {5}{\ignorespaces Offset-free tracking with a constant reference.\relax }}{10}
+\contentsline {figure}{\numberline {6}{\ignorespaces Offset-free tracking with a varying reference.\relax }}{11}
+\contentsline {figure}{\numberline {7}{\ignorespaces Response of the nonlinear model with step signal.\relax }}{12}
+\contentsline {figure}{\numberline {8}{\ignorespaces Nonlinear model with hexagon signal.\relax }}{13}
+\contentsline {figure}{\numberline {9}{\ignorespaces Offset-free tracking with slew rate constraints.\relax }}{14}
