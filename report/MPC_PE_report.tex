@@ -374,7 +374,45 @@ Since the system is linearized in $(x_s,u_s)$ such that the effect of gravity is
 \begin{enumerate}
     \setcounter{enumi}{7}
     % 8.
-    \item
+    \item The matrix L:
+    
+    Our calculation of L is based on the solution of the dual LQR-problem for the augmented system.
+    
+    \begin{verbatim}
+    L = dlqr(A_aug',C_aug',Q_aug,R_aug)';
+    \end{verbatim}
+    
+    For this purpose special weighting matrices $Q_{aug}$ and $R_{aug}$ were designed. Those were chosen as follows:
+    
+    \begin{verbatim}
+    Q_aug = diag([ones(1,nx) [50 1 1 500 10 10 0.01]);
+    R_aug = eye(nx);
+    \end{verbatim}
+    
+    Reasoning for the selection of $Q_{aug}$ and $R_{aug}$:
+    
+    \begin{itemize}
+    \item 
+    \end{itemize}
+    
+    \begin{equation}
+    L = \begin{bmatrix} 
+    0.8966&0&0&0&0&0&0\\
+    0&0.5808&0&0&0.0317&0&0\\
+    0&0&0&0.9821&0&0&0.0307\\
+    0&0.0015&0&0&0.7758&0&0\\
+    0&0&0.0015&0&0&0.7758&0\\
+    0&0&0&0.0001&0&0&0.3316\\
+    0.7191&0&0&0&0&0&0\\
+    0&0.2050&0&0&0.0017&0&0\\
+    0&0&0.2050&0&0&0.0017&0\\
+    0&0&0&0.9458&0&0&-0.0211\\
+    0&-0.0106&0&0&0.4734&0&0\\
+    0&0&-0.0106&0&0&0.4734&0\\
+    0&0&0&0&0&0&0.0259\\
+    \end{bmatrix}
+    \end{equation}
+    
 	% 9.
 	\item The response of the offset free tracking with a constant reference can be
     seen in Figure~\ref{fig:offset_free_tracking_with_constant}.
