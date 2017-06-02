@@ -420,4 +420,4 @@ r_const = [1.0; 0.1745; -0.1745; 1.7453];
 % Simulate task 9 with FORCES Pro controller
 x0 = zeros(nx,1);
 r_const = [0.8; 0.12; -0.12; pi/2];
-[~, ~, ~, rt_task9_FORCES ,~] = simQuad(sys, innerController, 0, x0, T, r_const, filter, [])
+[~, ~, ~, rt_task9_FORCES ,~] = simQuad(sys, innerController_FORCES_task9, 0, x0, T, r_const, filter, [])
