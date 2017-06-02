@@ -15,16 +15,19 @@ load('quadData.mat')
 outerController = getOuterController(Ac);
 disp('Data successfully loaded')
 
-%%%%%%%%%%%%%%%% ADD YOUR CODE BELOW THIS LINE %%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%  ADD YOUR CODE BELOW THIS LINE %%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Define some constants.
 [nx, nu] = size(sys.B); % State and input dimenstions
 T = 10;                 % Simulation time [s]
-N = 10;                 % Time horizon
+N = 20;                 % Time horizon
 
 % Define cost parameters
-Q = diag([1 80 30 1 1 1 1]);
-R = eye(nu);
+Q = diag([1000 8000 6000 30 4 10 10]);
+R = 0.1*eye(nu);
+
+% R(2,2) = 0.01;
+% R(3,3)  = 0.01;
 
 % Define constraints
 stateConstraint.Max = [1; 10/180*pi; 10/180*pi; Inf; 15/180*pi; 15/180*pi; 60/180*pi;];
@@ -48,7 +51,7 @@ invSet = sysCL.invariantSet();
 Hx_f = invSet.A;
 kx_f = invSet.b;
 
-%% %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%
+ %%%%%%%%%%%%%%%%%%%%%    First MPC controller %%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART I - First MPC controller...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
@@ -57,8 +60,7 @@ x = sdpvar(nx,N+1);
 u = sdpvar(nu,N);
 
 % Init constraints and objective function
-constraints = [];
-objective = 0;
+constraints = [];objective = 0;
 for i=1:N
     % Add system dynamics
     constraints = [constraints; x(:,i+1) == sys.A*x(:,i) + sys.B*u(:,i)];
@@ -88,6 +90,8 @@ fprintf('PART II - Reference tracking...\n')
 
 % Clear variables
 clearvars x u objective constraints innerController
+
+
 
 % Define yalmip states, inputs and reference
 x = sdpvar(nx,N+1);
@@ -144,6 +148,9 @@ fprintf('PART IV - Offset free MPC...\n')
 
 clearvars x u objective constraints innerController ref ss xr ur
 
+seed = 2;
+rng(seed);
+
 % Define variables for controller
 ref = sdpvar(4,1);      % reference
 x = sdpvar(nx,N+1);     % states
@@ -154,7 +161,7 @@ d_est = sdpvar(nx,1);       % disturbance
 % y(k) = C x(k) + C_d d(k) and the disturbance dynamics as d(k+1) = d(k).
 C = eye(nx);
 B_d = eye(nx);
-C_d = eye(nx);
+C_d = zeros(nx);
 
 % Define state observer dynamics as
 % [x_hat(k+1); d_hat(k+1)] = (A_aug - L C_aug) [x_hat(k); d_hat(k)] +
@@ -164,13 +171,24 @@ A_aug = [sys.A B_d; zeros(nx) eye(nx)];
 B_aug = [sys.B; zeros(nx,nu)];
 C_aug = [eye(nx) eye(nx)];
 
-Q_ = diag([0.01*ones(1,nx) [10 1 1 10 1 1 1 ]]);
-R_ = eye(nx);
+Q_ = diag([1*ones(1,nx) [50 1 1 500 10 10 0.01 ]]);
+% Q(1,1) = 10;
+% Q(3,3) = 100;
+% Q(4,4) = 5;
+R_ = 10*eye(nx);
+% R(1,1) = 0.10;
+% R(2,2) = 0.001;
+% R(3,3)  = 0.001;
+% R(4,4) = 0.01;
+
 L = dlqr(A_aug',C_aug',Q_,R_)';
 % L = [eye(nx); diag([0.1 0.1 1 0.1 1 1 1])];
 
+% p = [0.91, 0.92, 0.93, 0.901, 0.88, 0.8, 0.99, 0.95, 0.955, 0.99, 0.99, 0.98, 0.97, 0.99]';
+% L = place(A_aug',C_aug',p)'
+
 % Defining the filter
-filter.Af = A_aug-L*C_aug;
+filter.Af = A_aug - L*C_aug;
 abs(eig(filter.Af))
 filter.Bf = [B_aug L];
 
@@ -216,7 +234,7 @@ fprintf('PART V - simulation of the nonlinear model...\n')
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 % Simulate the nonlinear model
-% sim('simulation2')
+sim('simulation2')
 
 %% %%%%%%%%%%%%%%%%%%%%%  Slew Rate Constraints %%%%%%%%%%%%%%%%%%%%%%%%%%%
 fprintf('PART VI - Slew Rate Constraints...\n')
@@ -236,4 +254,4 @@ fprintf('PART VIII - FORCES Pro...\n')
 % codeoptions = getOptions('simpleMPC_solver'); % give solver a name
 % innerController = optimizerFORCES(constraints, objective, codeoptions, [x(:,1)', ref']', u(:,1), {'xinit'}, {'u0'});
 % [output,exitflag,info] = simpleMPC_solver({[x0',r']'});
-% [xt ut t rt deltat] 
+% [xt ut t rt deltat] x
